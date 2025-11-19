@@ -1,0 +1,1166 @@
+1) average_order_value source
+
+CREATE VIEW restaurant.retail_data.average_order_value SECURITY DEFINER AS
+SELECT
+  dt
+, store_code
+, EXTRACT(YEAR FROM dt) year
+, format_datetime(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((day_of_month(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, ROUND((SUM(total) / COUNT(DISTINCT bill_number)), 2) average_order_value
+FROM
+  restaurant.retail_data
+GROUP BY dt, store_code
+ORDER BY dt ASC, store_code ASC;
+
+
+2) restaurant.retail_data.avg_availability_of_items source
+
+CREATE VIEW restaurant.retail_data.avg_availability_of_items SECURITY DEFINER AS
+SELECT
+  DATE(CAST(ts AS timestamp)) order_date
+, store_code
+, EXTRACT(YEAR FROM CAST(ts AS timestamp)) year
+, FORMAT_DATETIME(CAST(ts AS timestamp), 'MMMM') month
+, CONCAT('Week ', CAST((((EXTRACT(DAY FROM CAST(ts AS timestamp)) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, ROUND(AVG(CAST(availability AS DOUBLE)), 2) avg_availability
+FROM
+  restaurant.retail_data
+GROUP BY DATE(CAST(ts AS timestamp)), store_code, EXTRACT(YEAR FROM CAST(ts AS timestamp)), FORMAT_DATETIME(CAST(ts AS timestamp), 'MMMM'), CONCAT('Week ', CAST((((EXTRACT(DAY FROM CAST(ts AS timestamp)) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY order_date ASC, store_code ASC;
+
+
+3) restaurant.retail_data.avg_order_preparation_time source
+
+CREATE VIEW restaurant.retail_data.avg_order_preparation_time SECURITY DEFINER AS
+SELECT
+  DATE(CAST(ts AS timestamp)) order_date
+, YEAR(CAST(ts AS timestamp)) year
+, FORMAT_DATETIME(CAST(ts AS timestamp), 'MMMM') month
+, CONCAT('Week ', CAST(CEIL((DAY_OF_MONTH(CAST(ts AS timestamp)) / DECIMAL '7.0')) AS VARCHAR)) week_in_month
+, store_code
+, order_type
+, ROUND(AVG(CAST(delivery_time_min AS DOUBLE)), 2) avg_prep_time
+FROM
+  restaurant.retail_data
+GROUP BY DATE(CAST(ts AS timestamp)), YEAR(CAST(ts AS timestamp)), FORMAT_DATETIME(CAST(ts AS timestamp), 'MMMM'), CONCAT('Week ', CAST(CEIL((DAY_OF_MONTH(CAST(ts AS timestamp)) / DECIMAL '7.0')) AS VARCHAR)), store_code, order_type
+ORDER BY order_date ASC, store_code ASC;
+
+
+4) restaurant.retail_data.avg_prep_time source
+
+CREATE VIEW restaurant.retail_data.avg_prep_time SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, YEAR(dt) year
+, format_datetime(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, AVG(delivery_time_min) avg_prep_time
+, MAX(delivery_time_min) max_prep_time
+, MIN(delivery_time_min) min_prep_time
+, COUNT(bill_number) total_orders
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, YEAR(dt), format_datetime(dt, 'MMMM'), CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY year ASC, month ASC, store_code ASC;
+
+
+5) restaurant.retail_data.avg_scores_per_store source
+
+CREATE VIEW restaurant.retail_data.avg_scores_per_store SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, YEAR(dt) year
+, format_datetime(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, AVG(quality) avg_quality
+, AVG(hygiene) avg_hygiene
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, YEAR(dt), format_datetime(dt, 'MMMM'), CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY year ASC, month ASC, week_in_month ASC, store_code ASC;
+
+
+6) restaurant.retail_data.cogs source
+
+CREATE VIEW restaurant.retail_data.cogs SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, EXTRACT(YEAR FROM dt) year
+, date_format(dt, '%M') month
+, CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, SUM((quantity * cost_price)) COGS
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, EXTRACT(YEAR FROM dt), date_format(dt, '%M'), EXTRACT(DAY FROM dt)
+ORDER BY dt ASC;
+
+
+7) restaurant.retail_data.customer_profile_summary source
+
+CREATE VIEW restaurant.retail_data.customer_profile_summary SECURITY DEFINER AS
+SELECT
+  mobile_no
+, dt
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, COUNT(DISTINCT bill_number) total_visits
+, SUM(total) total_spend
+, MAX(dt) last_visit_date
+FROM
+  restaurant.retail_data
+GROUP BY mobile_no, dt, YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code;
+
+
+8) restaurant.retail_data.delivery_time source
+
+CREATE VIEW restaurant.retail_data.delivery_time SECURITY DEFINER AS
+SELECT
+  DATE_TRUNC('week', dt) week_start_date
+, store_code
+, EXTRACT(YEAR FROM DATE_TRUNC('week', dt)) year
+, format_datetime(DATE_TRUNC('week', dt), 'MMMM') month
+, CONCAT('Week ', CAST((((day_of_month(DATE_TRUNC('week', dt)) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, ROUND(AVG((CASE WHEN (order_type = 'Home Delivery') THEN (delivery_time_min + (FLOOR((RANDOM() * 4)) + 2)) END)), 2) home_delivery_avg_time
+, ROUND(AVG((CASE WHEN (order_type = 'Dine-in') THEN (delivery_time_min - (FLOOR((RANDOM() * 8)) + 1)) END)), 2) dine_in_avg_time_adjusted
+FROM
+  restaurant.retail_data
+WHERE (order_type IN ('Home Delivery', 'Dine-in'))
+GROUP BY DATE_TRUNC('week', dt), store_code
+ORDER BY week_start_date ASC, store_code ASC;
+
+
+9) restaurant.retail_data.favorite_items source
+
+CREATE VIEW restaurant.retail_data.favorite_items SECURITY DEFINER AS
+SELECT
+  mobile_no
+, dt
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, item_desc
+, SUM(quantity) total_quantity_ordered
+FROM
+  restaurant.retail_data
+GROUP BY mobile_no, dt, YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code, item_desc
+ORDER BY mobile_no ASC, total_quantity_ordered DESC;
+
+
+10) restaurant.retail_data.gross_profit_margin source
+
+CREATE VIEW restaurant.retail_data.gross_profit_margin SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, EXTRACT(YEAR FROM dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, SUM(total) revenue
+, SUM((cost_price * quantity)) cost
+, ROUND((((SUM(total) - SUM((cost_price * quantity))) / NULLIF(SUM(total), 0)) * 100), 2) gross_profit_margin
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, EXTRACT(YEAR FROM dt), FORMAT_DATETIME(dt, 'MMMM'), CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY dt ASC;
+
+
+11) restaurant.retail_data.hourly_sales_trend source
+
+CREATE VIEW restaurant.retail_data.hourly_sales_trend SECURITY DEFINER AS
+SELECT
+  dt
+, YEAR(dt) year
+, format_datetime(dt, 'MMMM') month
+, store_code
+, SUBSTRING(time, 1, 2) hour
+, SUM(total) total_revenue
+, COUNT(DISTINCT bill_number) total_orders
+FROM
+  restaurant.retail_data
+GROUP BY dt, YEAR(dt), format_datetime(dt, 'MMMM'), store_code, SUBSTRING(time, 1, 2)
+ORDER BY year ASC, month ASC, hour ASC;
+
+
+12) restaurant.retail_data.item_wise_profitability source
+
+CREATE VIEW restaurant.retail_data.item_wise_profitability SECURITY DEFINER AS
+SELECT
+  store_code
+, dt date
+, item_desc
+, SUM(quantity) total_quantity_sold
+, SUM(total) total_revenue
+, SUM((quantity * cost_price)) total_cost
+, SUM((total - (quantity * cost_price))) Profit
+, YEAR(dt) year
+, DATE_FORMAT(dt, '%M') month
+, CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+FROM
+  restaurant.retail_data
+GROUP BY store_code, item_desc, dt, YEAR(dt), DATE_FORMAT(dt, '%M'), CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY Profit DESC;
+
+
+13) restaurant.retail_data.most_active_weeks source
+
+CREATE VIEW restaurant.retail_data.most_active_weeks SECURITY DEFINER AS
+WITH
+  customer_orders AS (
+   SELECT
+     mobile_no
+   , COUNT(DISTINCT bill_number) total_orders
+   , COUNT(DISTINCT DATE_TRUNC('week', dt)) active_weeks
+   , SUM(total) total_spent
+   FROM
+     restaurant.retail_data
+   GROUP BY mobile_no
+) 
+SELECT
+  mobile_no
+, EXTRACT(YEAR FROM current_date) year
+, total_orders
+, active_weeks
+, ROUND(((total_orders * DECIMAL '1.0') / NULLIF(active_weeks, 0)), 2) avg_order_frequency_week
+, total_spent
+FROM
+  customer_orders
+ORDER BY avg_order_frequency_week DESC
+LIMIT 10;
+
+
+-14)restaurant.retail_data.net_revenue_per_store source
+
+CREATE VIEW restaurant.retail_data.net_revenue_per_store SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, EXTRACT(YEAR FROM dt) year
+, date_format(dt, '%M') month
+, CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, SUM(total) net_revenue
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, EXTRACT(YEAR FROM dt), date_format(dt, '%M'), EXTRACT(DAY FROM dt)
+ORDER BY dt ASC;
+
+
+15) restaurant.retail_data.new_customers_daily source
+
+CREATE VIEW restaurant.retail_data.new_customers_daily SECURITY DEFINER AS
+WITH
+  first_purchase AS (
+   SELECT
+     mobile_no
+   , MIN(dt) first_purchase_date
+   FROM
+     restaurant.retail_data
+   GROUP BY mobile_no
+) 
+SELECT
+  t.dt
+, YEAR(t.dt) year
+, DATE_FORMAT(CAST(t.dt AS timestamp), '%M') month
+, t.store_code
+, COUNT(DISTINCT t.mobile_no) new_customers_count
+FROM
+  (restaurant.retail_data t
+INNER JOIN first_purchase fp ON ((t.mobile_no = fp.mobile_no) AND (t.dt = fp.first_purchase_date)))
+GROUP BY t.dt, YEAR(t.dt), DATE_FORMAT(CAST(t.dt AS timestamp), '%M'), t.store_code
+ORDER BY year ASC, month ASC, t.store_code ASC, t.dt ASC;
+
+
+16) restaurant.retail_data.new_customers_per_week source
+
+CREATE VIEW restaurant.retail_data.new_customers_per_week SECURITY DEFINER AS
+WITH
+  first_purchase AS (
+   SELECT
+     store_code
+   , mobile_no
+   , MIN(dt) first_purchase_date
+   FROM
+     restaurant.retail_data
+   GROUP BY store_code, mobile_no
+) 
+, weekly_customers AS (
+   SELECT
+     store_code
+   , DATE_TRUNC('week', dt) week_start_date
+   , YEAR(dt) year
+   , COUNT(mobile_no) total_customers
+   FROM
+     restaurant.retail_data
+   GROUP BY store_code, DATE_TRUNC('week', dt), YEAR(dt)
+) 
+, date_range AS (
+   SELECT
+     DATE_TRUNC('week', MIN(dt)) min_week
+   , DATE_TRUNC('week', MAX(dt)) max_week
+   FROM
+     restaurant.retail_data
+) 
+, all_weeks AS (
+   SELECT DISTINCT
+     store_code
+   , DATE_TRUNC('week', DATE_ADD('week', n, min_week)) week_start_date
+   , YEAR(DATE_TRUNC('week', DATE_ADD('week', n, min_week))) year
+   FROM
+     ((date_range
+   CROSS JOIN UNNEST(SEQUENCE(0, CAST(DATE_DIFF('week', min_week, max_week) AS INTEGER))) t (n))
+   CROSS JOIN (
+      SELECT DISTINCT store_code
+      FROM
+        restaurant.retail_data
+   ) )
+) 
+SELECT
+  aw.store_code
+, aw.week_start_date
+, aw.year
+, FORMAT_DATETIME(aw.week_start_date, 'MMMM') month
+, CONCAT('Week ', CAST((((DAY(aw.week_start_date) - 1) / 7) + 1) AS VARCHAR)) week
+, COALESCE(COUNT(DISTINCT fp.mobile_no), 0) new_customers
+, COALESCE(wc.total_customers, 0) total_customers
+, (COALESCE(wc.total_customers, 0) - COALESCE(COUNT(DISTINCT fp.mobile_no), 0)) repeated_customers
+, round((((CAST(COALESCE(wc.total_customers, 0) AS DOUBLE) - CAST(COALESCE(COUNT(DISTINCT fp.mobile_no), 0) AS DOUBLE)) / NULLIF(CAST(COALESCE(wc.total_customers, 0) AS DOUBLE), 0)) * 100), 2) repeated_customer_rate
+FROM
+  ((all_weeks aw
+LEFT JOIN first_purchase fp ON ((aw.store_code = fp.store_code) AND (DATE_TRUNC('week', fp.first_purchase_date) = aw.week_start_date)))
+LEFT JOIN weekly_customers wc ON ((aw.store_code = wc.store_code) AND (aw.week_start_date = wc.week_start_date)))
+GROUP BY aw.store_code, aw.week_start_date, aw.year, wc.total_customers
+ORDER BY aw.store_code ASC, aw.year ASC, aw.week_start_date ASC;
+
+
+17)restaurant.retail_data.ontime_delivery_rate source
+
+CREATE VIEW restaurant.retail_data.ontime_delivery_rate SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, EXTRACT(YEAR FROM dt) year
+, format_datetime(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, COUNT(*) total_orders
+, ((SUM((CASE WHEN ((order_type = 'Home Delivery') AND (delivery_time_min <= 30)) THEN 1 ELSE 0 END)) * DECIMAL '100.0') / COUNT(*)) on_time_delivery_rate
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, EXTRACT(YEAR FROM dt), format_datetime(dt, 'MMMM'), CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY EXTRACT(YEAR FROM dt) ASC, format_datetime(dt, 'MMMM') ASC, week_in_month ASC, store_code ASC;
+
+
+18)restaurant.retail_data.operational_cost_ratio source
+
+CREATE VIEW restaurant.retail_data.operational_cost_ratio SECURITY DEFINER AS
+SELECT
+  store_code
+, dt timestamp
+, YEAR(dt) year
+, DATE_FORMAT(dt, '%M') month
+, CONCAT('Week ', CAST((((DAY(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, SUM(cost_price) total_cogs
+, SUM(total) total_revenue
+, ((SUM(cost_price) / NULLIF(SUM(total), 0)) * 100) operational_cost_ratio
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, YEAR(dt), DATE_FORMAT(dt, '%M'), CONCAT('Week ', CAST((((DAY(dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY year ASC, month ASC, week_in_month ASC, store_code ASC;
+
+
+19)restaurant.retail_data.operational_efficiency_score source
+
+CREATE VIEW restaurant.retail_data.operational_efficiency_score SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, YEAR(dt) year
+, format_datetime(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, ROUND((((speed * DECIMAL '0.4') + (availability * DECIMAL '0.3')) + (quality * DECIMAL '0.3')), 2) operational_efficiency_score
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, speed, availability, quality;
+
+
+20) restaurant.retail_data.order_breakdown source
+
+CREATE VIEW restaurant.retail_data.order_breakdown SECURITY DEFINER AS
+SELECT
+  mobile_no
+, dt
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, order_type
+, COUNT(DISTINCT bill_number) total_orders
+, ROUND(((DECIMAL '100.0' * COUNT(DISTINCT bill_number)) / SUM(COUNT(DISTINCT bill_number)) OVER (PARTITION BY mobile_no)), 2) percentage
+FROM
+  restaurant.retail_data
+GROUP BY mobile_no, dt, YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code, order_type
+ORDER BY mobile_no ASC, month ASC, percentage DESC;
+
+
+21) restaurant.retail_data.order_fullfillment_rate source
+
+CREATE VIEW restaurant.retail_data.order_fullfillment_rate SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, YEAR(dt) year
+, DATE_FORMAT(dt, '%M') month
+, CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, ((COUNT((CASE WHEN (delivery_time_min <= 30) THEN 1 END)) * DECIMAL '100.0') / COUNT(*)) order_fulfillment_rate
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, YEAR(dt), DATE_FORMAT(dt, '%M'), CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY year ASC, month ASC, week_in_month ASC, store_code ASC;
+
+
+22) restaurant.retail_data.order_history source
+
+CREATE VIEW restaurant.retail_data.order_history SECURITY DEFINER AS
+SELECT
+  mobile_no
+, dt order_date
+, YEAR(dt) order_year
+, FORMAT_DATETIME(dt, 'MMMM') order_month
+, store_code location
+, bill_number
+, item_desc
+, quantity
+, total total_bill
+FROM
+  restaurant.retail_data
+GROUP BY mobile_no, dt, YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code, bill_number, item_desc, quantity, total
+ORDER BY mobile_no ASC, order_date DESC;
+
+
+23) restaurant.retail_data.order_type_mobile_no source
+
+CREATE VIEW restaurant.retail_data.order_type_mobile_no SECURITY DEFINER AS
+SELECT
+  mobile_no
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, order_type
+, count(order_type) total_number_of_orders
+FROM
+  restaurant.retail_data
+GROUP BY YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code, order_type, mobile_no;
+
+
+24) restaurant.retail_data.overall_satisfaction_score source
+
+CREATE VIEW restaurant.retail_data.overall_satisfaction_score SECURITY DEFINER AS
+SELECT
+  DATE_TRUNC('week', dt) week_start_date
+, store_code
+, EXTRACT(YEAR FROM DATE_TRUNC('week', dt)) year
+, format_datetime(DATE_TRUNC('week', dt), 'MMMM') month
+, CONCAT('Week ', CAST((((day_of_month(DATE_TRUNC('week', dt)) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, ROUND(AVG((((((speed + availability) + quality) + hygiene) + service) / DECIMAL '5.0')), 2) overall_satisfaction_score
+FROM
+  restaurant.retail_data
+GROUP BY DATE_TRUNC('week', dt), store_code
+ORDER BY week_start_date ASC, store_code ASC;
+
+
+25) restaurant.retail_data.payment_type source
+
+CREATE VIEW restaurant.retail_data.payment_type SECURITY DEFINER AS
+SELECT
+  DATE_TRUNC('week', dt) week_start_date
+, store_code
+, EXTRACT(YEAR FROM DATE_TRUNC('week', dt)) year
+, format_datetime(DATE_TRUNC('week', dt), 'MMMM') month
+, CONCAT('Week ', CAST((((day_of_month(DATE_TRUNC('week', dt)) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, payment_type
+, ROUND(((COUNT(*) * DECIMAL '100.0') / SUM(COUNT(*)) OVER (PARTITION BY store_code, DATE_TRUNC('week', dt))), 2) percentage_usage
+FROM
+  restaurant.retail_data
+GROUP BY DATE_TRUNC('week', dt), store_code, payment_type
+ORDER BY week_start_date ASC;
+
+
+26) restaurant.retail_data.popular_dishes source
+
+CREATE VIEW restaurant.retail_data.popular_dishes SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, item_desc dish_name
+, COUNT(*) dish_order_count
+FROM
+  restaurant.retail_data
+GROUP BY item_desc, dt, store_code
+ORDER BY dish_order_count DESC;
+
+
+27) restaurant.retail_data.repeated_customers_rate source
+
+CREATE VIEW restaurant.retail_data.repeated_customers_rate SECURITY DEFINER AS
+WITH
+  first_purchase AS (
+   SELECT
+     mobile_no
+   , MIN(dt) first_purchase_date
+   FROM
+     restaurant.retail_data
+   GROUP BY mobile_no
+) 
+, monthly_customers AS (
+   SELECT
+     DATE_TRUNC('month', dt) month_start_date
+   , COUNT(DISTINCT mobile_no) total_customers
+   FROM
+     restaurant.retail_data
+   GROUP BY DATE_TRUNC('month', dt)
+) 
+, date_range AS (
+   SELECT
+     DATE_TRUNC('month', MIN(dt)) min_month
+   , DATE_TRUNC('month', MAX(dt)) max_month
+   FROM
+     restaurant.retail_data
+) 
+, all_months AS (
+   SELECT DATE_TRUNC('month', DATE_ADD('month', n, min_month)) month_start_date
+   FROM
+     (date_range
+   CROSS JOIN UNNEST(SEQUENCE(0, CAST((((YEAR(max_month) - YEAR(min_month)) * 12) + (MONTH(max_month) - MONTH(min_month))) AS INTEGER))) t (n))
+) 
+SELECT
+  am.month_start_date
+, FORMAT_DATETIME(am.month_start_date, 'MMMM') month
+, COALESCE(COUNT(DISTINCT fp.mobile_no), 0) new_customers
+, COALESCE(mc.total_customers, 0) total_customers
+, ROUND((((COALESCE(mc.total_customers, 0) - COALESCE(COUNT(DISTINCT fp.mobile_no), 0)) * DECIMAL '100.0') / NULLIF(COALESCE(mc.total_customers, 0), 0)), 2) repeated_customers_rate
+FROM
+  ((all_months am
+LEFT JOIN first_purchase fp ON (DATE_TRUNC('month', fp.first_purchase_date) = am.month_start_date))
+LEFT JOIN monthly_customers mc ON (am.month_start_date = mc.month_start_date))
+GROUP BY am.month_start_date, mc.total_customers
+ORDER BY am.month_start_date ASC;
+
+
+28)restaurant.retail_data.retention_rate source
+
+CREATE VIEW restaurant.retail_data.retention_rate SECURITY DEFINER AS
+SELECT
+  week_start_date
+, store_code
+, EXTRACT(YEAR FROM week_start_date) year
+, format_datetime(week_start_date, 'MMMM') month
+, CONCAT('Week ', CAST((((day_of_month(week_start_date) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, ROUND(((COUNT((CASE WHEN (order_count > 1) THEN mobile_no END)) * DECIMAL '100.0') / COUNT(mobile_no)), 2) retention_rate
+FROM
+  (
+   SELECT
+     store_code
+   , DATE_TRUNC('week', dt) week_start_date
+   , mobile_no
+   , COUNT(DISTINCT bill_number) order_count
+   FROM
+     restaurant.retail_data
+   GROUP BY store_code, DATE_TRUNC('week', dt), mobile_no
+)  weekly_customers
+GROUP BY week_start_date, store_code
+ORDER BY week_start_date ASC, store_code ASC;
+
+
+29) restaurant.retail_data.revenue_by_payment_type source
+
+CREATE VIEW restaurant.retail_data.revenue_by_payment_type SECURITY DEFINER AS
+SELECT
+  store_code
+, DATE_FORMAT(dt, '%Y-%m-%d') date
+, YEAR(dt) year
+, DATE_FORMAT(dt, '%M') month
+, CONCAT('Week ', CAST((((DAY(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, payment_type
+, SUM(total) revenue
+FROM
+  restaurant.retail_data
+GROUP BY store_code, DATE_FORMAT(dt, '%Y-%m-%d'), YEAR(dt), DATE_FORMAT(dt, '%M'), CONCAT('Week ', CAST((((DAY(dt) - 1) / 7) + 1) AS VARCHAR)), payment_type
+ORDER BY year ASC, month ASC, week_in_month ASC, store_code ASC;
+
+
+30) restaurant.retail_data.revenue_by_payment_type_by_mobileno source
+
+CREATE VIEW restaurant.retail_data.revenue_by_payment_type_by_mobileno SECURITY DEFINER AS
+SELECT
+  store_code
+, mobile_no
+, YEAR(dt) year
+, DATE_FORMAT(dt, '%M') month
+, payment_type
+, SUM(total) revenue
+FROM
+  restaurant.retail_data
+GROUP BY store_code, YEAR(dt), DATE_FORMAT(dt, '%M'), mobile_no, payment_type
+ORDER BY mobile_no ASC, store_code ASC, payment_type ASC, month ASC;
+
+
+31) restaurant.retail_data.revenue_cost source
+
+CREATE VIEW restaurant.retail_data.revenue_cost SECURITY DEFINER AS
+SELECT
+  store_code
+, dt date
+, YEAR(dt) year
+, DATE_FORMAT(dt, '%M') month
+, CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, SUM(total) total_revenue
+, SUM((quantity * cost_price)) total_cost
+, SUM((total - (quantity * cost_price))) Profit
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, YEAR(dt), DATE_FORMAT(dt, '%M'), CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY date ASC;
+
+
+32) restaurant.retail_data.roi source
+
+CREATE VIEW restaurant.retail_data.roi SECURITY DEFINER AS
+WITH
+  sales_data AS (
+   SELECT
+     store_code
+   , dt
+   , YEAR(dt) year
+   , DATE_FORMAT(dt, '%M') month
+   , CONCAT('Week ', CAST((((DAY(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+   , SUM(total) total_revenue
+   , SUM((cost_price * quantity)) total_cost
+   , (SUM(total) - SUM((cost_price * quantity))) profit
+   FROM
+     restaurant.retail_data
+   GROUP BY store_code, dt
+) 
+SELECT
+  store_code
+, dt
+, year
+, month
+, week_in_month
+, SUM(profit) total_profit
+, SUM(total_cost) total_operational_cost
+, ROUND(((SUM(profit) / NULLIF(SUM(total_cost), 0)) * 100), 2) ROI_percentage
+FROM
+  sales_data
+GROUP BY store_code, dt, year, month, week_in_month
+ORDER BY store_code ASC, year ASC, month ASC, week_in_month ASC, dt ASC;
+
+
+33) restaurant.retail_data.sales_by_order_type source
+
+CREATE VIEW restaurant.retail_data.sales_by_order_type SECURITY DEFINER AS
+SELECT
+  dt
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, store_code
+, order_type
+, SUM(total) total_revenue
+, COUNT(DISTINCT bill_number) total_orders
+FROM
+  restaurant.retail_data
+GROUP BY dt, YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)), store_code, order_type
+ORDER BY total_revenue DESC;
+
+
+34) restaurant.retail_data.sales_by_product_category source
+
+CREATE VIEW restaurant.retail_data.sales_by_product_category SECURITY DEFINER AS
+SELECT
+  dt
+, EXTRACT(YEAR FROM dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, category
+, SUM(total) total_revenue
+, ROUND(((100 * SUM(total)) / SUM(SUM(total)) OVER (PARTITION BY dt, store_code)), 2) revenue_percentage
+FROM
+  restaurant.retail_data
+GROUP BY dt, store_code, category
+ORDER BY total_revenue DESC;
+
+
+35) restaurant.retail_data.service_speed_ratings source
+
+CREATE VIEW restaurant.retail_data.service_speed_ratings SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, EXTRACT(YEAR FROM dt) year
+, format_datetime(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, speed
+, AVG(speed) avg_service_speed
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, EXTRACT(YEAR FROM dt), format_datetime(dt, 'MMMM'), CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR)), speed
+ORDER BY EXTRACT(YEAR FROM dt) ASC, format_datetime(dt, 'MMMM') ASC, week_in_month ASC, store_code ASC;
+
+
+36) restaurant.retail_data.store_availability source
+
+CREATE VIEW restaurant.retail_data.store_availability SECURITY DEFINER AS
+SELECT
+  store_code
+, dt
+, category
+, EXTRACT(YEAR FROM dt) year
+, format_datetime(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, COUNT((CASE WHEN (availability > 0) THEN 1 END)) available_count
+, COUNT(*) total_items
+, ((COUNT((CASE WHEN (availability > 0) THEN 1 END)) * DECIMAL '100.0') / COUNT(*)) availability_percentage
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, category, EXTRACT(YEAR FROM dt), format_datetime(dt, 'MMMM'), CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY store_code ASC, dt ASC, category ASC;
+
+
+37) restaurant.retail_data.store_ranking source
+
+CREATE VIEW restaurant.retail_data.store_ranking SECURITY DEFINER AS
+WITH
+  storeratings AS (
+   SELECT
+     store_code
+   , DATE_TRUNC('month', dt) dt
+   , YEAR(dt) year
+   , FORMAT_DATETIME(dt, 'MMMM') month_name
+   , FLOOR(AVG(quality)) avg_quality
+   , FLOOR(AVG(hygiene)) avg_hygiene
+   , FLOOR(AVG(service)) avg_service
+   , FLOOR(AVG(speed)) avg_speed
+   , ((((FLOOR(AVG(quality)) + FLOOR(AVG(hygiene))) + FLOOR(AVG(service))) + FLOOR(AVG(speed))) / DECIMAL '4.0') overall_score
+   FROM
+     restaurant.retail_data me
+   GROUP BY store_code, DATE_TRUNC('month', dt), YEAR(dt), FORMAT_DATETIME(dt, 'MMMM')
+) 
+SELECT
+  store_code
+, dt
+, year
+, month_name
+, avg_quality
+, avg_hygiene
+, avg_service
+, avg_speed
+, overall_score
+, DENSE_RANK() OVER (PARTITION BY dt ORDER BY overall_score DESC) overall_rank
+FROM
+  storeratings
+ORDER BY dt ASC, overall_rank ASC;
+
+
+38) restaurant.retail_data.store_ratings source
+
+CREATE VIEW restaurant.retail_data.store_ratings SECURITY DEFINER AS
+SELECT
+  store_code
+, DATE_TRUNC('day', dt) date
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, CONCAT('Week ', CAST(CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS INTEGER) AS VARCHAR)) week_in_month
+, FLOOR(AVG(quality)) avg_quality
+, FLOOR(AVG(hygiene)) avg_hygiene
+, FLOOR(AVG(service)) avg_service
+, FLOOR(AVG(speed)) avg_speed
+, FLOOR(AVG(availability)) avg_availability
+FROM
+  restaurant.retail_data
+GROUP BY store_code, DATE_TRUNC('day', dt), YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), CONCAT('Week ', CAST(CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS INTEGER) AS VARCHAR))
+ORDER BY store_code ASC, DATE_TRUNC('day', dt) ASC;
+
+
+39) restaurant.retail_data.store_sales_contribution_percentage source
+
+CREATE VIEW restaurant.retail_data.store_sales_contribution_percentage SECURITY DEFINER AS
+WITH
+  WeeklyData AS (
+   SELECT
+     store_code
+   , dt
+   , YEAR(dt) year
+   , DATE_FORMAT(dt, '%M') month_name
+   , CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+   , total
+   FROM
+     restaurant.retail_data
+) 
+, NormalizedWeeklyData AS (
+   SELECT
+     store_code
+   , dt
+   , year
+   , month_name
+   , week_in_month
+   , MIN(dt) OVER (PARTITION BY store_code, year, month_name, week_in_month) normalized_week_start
+   , total
+   FROM
+     WeeklyData
+) 
+, AggregatedWeeklySales AS (
+   SELECT
+     store_code
+   , year
+   , month_name
+   , week_in_month
+   , normalized_week_start dt
+   , CONCAT('Week ', CAST(DENSE_RANK() OVER (PARTITION BY store_code, year, month_name ORDER BY normalized_week_start ASC) AS VARCHAR)) week_of_month
+   , SUM(total) store_revenue
+   FROM
+     NormalizedWeeklyData
+   GROUP BY store_code, year, month_name, week_in_month, normalized_week_start
+) 
+, TotalSales AS (
+   SELECT
+     year
+   , month_name
+   , dt
+   , SUM(store_revenue) overall_revenue
+   FROM
+     AggregatedWeeklySales
+   GROUP BY year, month_name, dt
+) 
+SELECT
+  aws.dt
+, aws.year
+, aws.month_name month
+, aws.week_in_month
+, aws.store_code
+, aws.store_revenue
+, ROUND(((aws.store_revenue / ts.overall_revenue) * 100), 2) sales_contribution_pct
+FROM
+  (AggregatedWeeklySales aws
+INNER JOIN TotalSales ts ON ((aws.year = ts.year) AND (aws.month_name = ts.month_name) AND (aws.dt = ts.dt)))
+ORDER BY aws.store_code ASC, aws.year ASC, aws.month_name ASC, aws.week_of_month ASC, sales_contribution_pct DESC;
+
+
+40) restaurant.retail_data.test source
+
+CREATE VIEW restaurant.retail_data.test SECURITY DEFINER AS
+SELECT
+  store_code
+, CAST(dt AS DATE) order_date
+, year(dt) order_year
+, month(dt) order_month
+, CONCAT('Week ', CAST(((EXTRACT(WEEK FROM dt) - EXTRACT(WEEK FROM DATE_TRUNC('month', dt))) + 1) AS VARCHAR)) week_of_month
+, SUM(total) order_amount
+FROM
+  restaurant.retail_data
+GROUP BY store_code, CAST(dt AS DATE), year(dt), month(dt), CONCAT('Week ', CAST(((EXTRACT(WEEK FROM dt) - EXTRACT(WEEK FROM DATE_TRUNC('month', dt))) + 1) AS VARCHAR))
+ORDER BY store_code ASC, order_date ASC;
+
+
+41) restaurant.retail_data.testing source
+
+CREATE VIEW restaurant.retail_data.testing SECURITY DEFINER AS
+SELECT
+  store_code
+, dt order_date
+, round(AVG(delivery_time_min), 2) avg_service_time
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt
+ORDER BY order_date ASC, store_code ASC;
+
+
+42) restaurant.retail_data.top_selling_items source
+
+CREATE VIEW restaurant.retail_data.top_selling_items SECURITY DEFINER AS
+SELECT
+  dt
+, year(dt) year
+, format_datetime(dt, 'MMMM') month
+, store_code
+, item_desc
+, SUM(quantity) total_quantity_sold
+, SUM(total) total_revenue
+FROM
+  restaurant.retail_data
+GROUP BY dt, year(dt), format_datetime(dt, 'MMMM'), store_code, item_desc
+ORDER BY total_quantity_sold DESC, total_revenue DESC;
+
+
+43) restaurant.retail_data.total_customers source
+
+CREATE VIEW restaurant.retail_data.total_customers SECURITY DEFINER AS
+SELECT
+  dt
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, COUNT(mobile_no) total_customers
+FROM
+  restaurant.retail_data
+GROUP BY dt, YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code
+ORDER BY dt ASC, store_code ASC;
+
+
+44) restaurant.retail_data.total_customers_per_month source
+
+CREATE VIEW restaurant.retail_data.total_customers_per_month SECURITY DEFINER AS
+WITH
+  first_time_customers AS (
+   SELECT
+     store_code
+   , mobile_no
+   , MIN(DATE_TRUNC('month', dt)) first_purchase_month
+   FROM
+     restaurant.retail_data
+   GROUP BY store_code, mobile_no
+) 
+SELECT
+  store_code
+, first_purchase_month month
+, EXTRACT(YEAR FROM first_purchase_month) year
+, format_datetime(first_purchase_month, 'MMMM') month_name
+, COUNT(DISTINCT mobile_no) new_customers
+FROM
+  first_time_customers
+GROUP BY store_code, first_purchase_month
+ORDER BY store_code ASC, first_purchase_month ASC;
+
+
+45) restaurant.retail_data.total_customers_per_week source
+
+CREATE VIEW restaurant.retail_data.total_customers_per_week SECURITY DEFINER AS
+WITH
+  first_time_customers AS (
+   SELECT
+     store_code
+   , mobile_no
+   , MIN(DATE_TRUNC('week', dt)) first_purchase_week
+   FROM
+     restaurant.retail_data
+   GROUP BY store_code, mobile_no
+) 
+SELECT
+  store_code
+, first_purchase_week week_start_date
+, EXTRACT(YEAR FROM first_purchase_week) year
+, format_datetime(first_purchase_week, 'MMMM') month
+, CONCAT('Week ', CAST((((day_of_month(first_purchase_week) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, COUNT(DISTINCT mobile_no) new_customers
+FROM
+  first_time_customers
+GROUP BY store_code, first_purchase_week
+ORDER BY store_code ASC, first_purchase_week ASC;
+
+
+46) restaurant.retail_data.total_no_of_stores source
+
+CREATE VIEW restaurant.retail_data.total_no_of_stores SECURITY DEFINER AS
+SELECT
+  count(DISTINCT store_code) total_outlets
+, year(dt) year
+, format_datetime(dt, 'MMMM') month
+FROM
+  restaurant.retail_data
+GROUP BY year(dt), format_datetime(dt, 'MMMM');
+
+
+47) restaurant.retail_data.total_orders source
+
+CREATE VIEW restaurant.retail_data.total_orders SECURITY DEFINER AS
+SELECT
+  dt
+, COUNT(DISTINCT bill_number) total_orders
+FROM
+  restaurant.retail_data
+GROUP BY dt;
+
+
+48) restaurant.retail_data.total_orders_by_customers source
+
+CREATE VIEW restaurant.retail_data.total_orders_by_customers SECURITY DEFINER AS
+SELECT
+  YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, mobile_no
+, COUNT(DISTINCT bill_number) total_orders
+FROM
+  restaurant.retail_data
+GROUP BY YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code, mobile_no;
+
+
+49)restaurant.retail_data.total_orders_by_order_type source
+
+CREATE VIEW restaurant.retail_data.total_orders_by_order_type SECURITY DEFINER AS
+SELECT
+  store_code
+, CAST(dt AS DATE) order_date
+, CONCAT('Week ', CAST(((EXTRACT(WEEK FROM dt) - EXTRACT(WEEK FROM DATE_TRUNC('month', dt))) + 1) AS VARCHAR)) week_of_month
+, format_datetime(dt, 'EEEE') day_of_week
+, COUNT(DISTINCT bill_number) total_orders
+, COUNT(DISTINCT (CASE WHEN (order_type = 'Home Delivery') THEN bill_number END)) home_delivery_orders
+, COUNT(DISTINCT (CASE WHEN (order_type = 'Dine-in') THEN bill_number END)) dine_in_orders
+FROM
+  restaurant.retail_data
+WHERE (order_type IN ('Home Delivery', 'Dine-in'))
+GROUP BY store_code, CAST(dt AS DATE), CONCAT('Week ', CAST(((EXTRACT(WEEK FROM dt) - EXTRACT(WEEK FROM DATE_TRUNC('month', dt))) + 1) AS VARCHAR)), format_datetime(dt, 'EEEE')
+ORDER BY store_code ASC, order_date ASC, total_orders DESC, home_delivery_orders DESC, dine_in_orders DESC;
+
+
+50) restaurant.retail_data.total_outlets source
+
+CREATE VIEW restaurant.retail_data.total_outlets SECURITY DEFINER AS
+SELECT COUNT(DISTINCT store_code) total_outlets
+FROM
+  restaurant.retail_data;
+
+
+51) restaurant.retail_data.total_quantity_sold source
+
+CREATE VIEW restaurant.retail_data.total_quantity_sold SECURITY DEFINER AS
+SELECT
+  sum(quantity) total_quanity_sold
+, dt
+, year(dt) year
+, format_datetime(dt, 'MMMM') month
+, store_code
+FROM
+  restaurant.retail_data
+GROUP BY dt, year(dt), format_datetime(dt, 'MMMM'), store_code
+ORDER BY year ASC, month ASC, dt ASC;
+
+
+52) restaurant.retail_data.total_sales_revenue source
+
+CREATE VIEW restaurant.retail_data.total_sales_revenue SECURITY DEFINER AS
+SELECT
+  dt
+, year(dt) year
+, format_datetime(dt, 'MMMM') month
+, store_code
+, SUM(total) total_sales_revenue
+FROM
+  restaurant.retail_data
+GROUP BY dt, year(dt), format_datetime(dt, 'MMMM'), store_code
+ORDER BY dt ASC, store_code ASC;
+
+
+53) restaurant.retail_data.total_spend_over_time source
+
+CREATE VIEW restaurant.retail_data.total_spend_over_time SECURITY DEFINER AS
+SELECT
+  mobile_no
+, dt
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, SUM(total) total_spend
+FROM
+  restaurant.retail_data
+GROUP BY mobile_no, dt, YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code
+ORDER BY mobile_no ASC, year ASC, month ASC;
+
+
+54) restaurant.retail_data.total_tax_collected source
+
+CREATE VIEW restaurant.retail_data.total_tax_collected SECURITY DEFINER AS
+SELECT
+  store_code
+, dt date
+, YEAR(dt) year
+, DATE_FORMAT(dt, '%M') month
+, CONCAT('Week ', CAST((((DAY(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, SUM((COALESCE(total, 0) * (COALESCE(tax_percent, 0) / DECIMAL '100.0'))) total_tax_collected
+FROM
+  restaurant.retail_data
+GROUP BY store_code, dt, YEAR(dt), DATE_FORMAT(dt, '%M'), CONCAT('Week ', CAST((((DAY(dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY year ASC, month ASC, week_in_month ASC, date ASC;
+
+
+55) restaurant.retail_data.unsatisfied_orders_rate source
+
+CREATE VIEW restaurant.retail_data.unsatisfied_orders_rate SECURITY DEFINER AS
+SELECT
+  store_code
+, EXTRACT(YEAR FROM dt) year
+, format_datetime(dt, 'MMMM') month
+, CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+, COUNT(*) total_orders
+, SUM((CASE WHEN (overall_satisfaction_score < 2) THEN 1 ELSE 0 END)) unsatisfied_orders
+, ((SUM((CASE WHEN (overall_satisfaction_score < 2) THEN 1 ELSE 0 END)) * DECIMAL '100.0') / COUNT(*)) unsatisfied_orders_rate
+FROM
+  (
+   SELECT
+     *
+   , ROUND((((((speed + availability) + quality) + hygiene) + service) / DECIMAL '5.0'), 2) overall_satisfaction_score
+   FROM
+     restaurant.retail_data
+)  subquery
+GROUP BY store_code, EXTRACT(YEAR FROM dt), format_datetime(dt, 'MMMM'), CONCAT('Week ', CAST((((EXTRACT(DAY FROM dt) - 1) / 7) + 1) AS VARCHAR))
+ORDER BY EXTRACT(YEAR FROM dt) ASC, format_datetime(dt, 'MMMM') ASC, week_in_month ASC, store_code ASC;
+
+
+56) restaurant.retail_data.visit_frequency_chart source
+
+CREATE VIEW restaurant.retail_data.visit_frequency_chart SECURITY DEFINER AS
+SELECT
+  mobile_no
+, dt
+, YEAR(dt) year
+, FORMAT_DATETIME(dt, 'MMMM') month
+, store_code
+, COUNT(DISTINCT bill_number) visits
+FROM
+  restaurant.retail_data
+GROUP BY mobile_no, dt, YEAR(dt), FORMAT_DATETIME(dt, 'MMMM'), store_code
+ORDER BY mobile_no ASC, year ASC, month ASC;
+
+
+57) restaurant.retail_data.weekly_growth_rate_in_sales source
+
+CREATE VIEW restaurant.retail_data.weekly_growth_rate_in_sales SECURITY DEFINER AS
+WITH
+  weekly_sales AS (
+   SELECT
+     store_code
+   , YEAR(CAST(dt AS DATE)) year
+   , DATE_FORMAT(CAST(dt AS timestamp), '%M') month
+   , DATE_FORMAT(CAST(dt AS timestamp), '%Y-%m') year_month
+   , CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR)) week_in_month
+   , SUM(total) weekly_revenue
+   FROM
+     restaurant.retail_data
+   GROUP BY store_code, YEAR(CAST(dt AS DATE)), DATE_FORMAT(CAST(dt AS timestamp), '%M'), DATE_FORMAT(CAST(dt AS timestamp), '%Y-%m'), CONCAT('Week ', CAST((((DAY_OF_MONTH(dt) - 1) / 7) + 1) AS VARCHAR))
+) 
+, weekly_growth AS (
+   SELECT
+     store_code
+   , year
+   , month
+   , year_month
+   , week_in_month
+   , weekly_revenue
+   , LAG(weekly_revenue) OVER (PARTITION BY store_code, year_month ORDER BY week_in_month ASC) prev_week_revenue
+   , ROUND((((weekly_revenue - LAG(weekly_revenue) OVER (PARTITION BY store_code, year_month ORDER BY week_in_month ASC)) / NULLIF(LAG(weekly_revenue) OVER (PARTITION BY store_code, year_month ORDER BY week_in_month ASC), 0)) * 100), 2) weekly_growth_rate_percentage
+   FROM
+     weekly_sales
+) 
+SELECT
+  store_code
+, year
+, month
+, year_month
+, week_in_month
+, weekly_revenue
+, prev_week_revenue
+, weekly_growth_rate_percentage
+FROM
+  weekly_growth
+ORDER BY store_code ASC, year ASC, year_month ASC, week_in_month ASC;
